@@ -27,11 +27,13 @@ const allowedOrigins = [
 |--------------------------------------------------------------------------
 */
 
-app.use(cors({
+const corsOptions = {
+
   origin: function (origin, callback) {
 
     // Allow requests with no origin
     // (Postman, mobile apps, server-to-server)
+
     if (!origin) {
       return callback(null, true);
     }
@@ -41,8 +43,22 @@ app.use(cors({
     } else {
       callback(new Error("CORS blocked"));
     }
-  }
-}));
+  },
+
+  methods: ["GET", "POST", "OPTIONS"],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization"
+  ],
+
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options("*", cors(corsOptions));
 
 /*
 |--------------------------------------------------------------------------
@@ -76,7 +92,12 @@ app.post("/chat", async (req, res) => {
 
     const userMessage = req.body.message;
 
-    // Validation
+    /*
+    |--------------------------------------------------------------------------
+    | Validation
+    |--------------------------------------------------------------------------
+    */
+
     if (!userMessage || userMessage.trim() === "") {
 
       return res.status(400).json({
@@ -84,6 +105,12 @@ app.post("/chat", async (req, res) => {
         error: "Message is required"
       });
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Claude API Request
+    |--------------------------------------------------------------------------
+    */
 
     const response = await anthropic.messages.create({
 
@@ -103,6 +130,12 @@ app.post("/chat", async (req, res) => {
       response?.content?.[0]?.text ||
       "No response generated";
 
+    /*
+    |--------------------------------------------------------------------------
+    | Success Response
+    |--------------------------------------------------------------------------
+    */
+
     res.json({
       success: true,
       reply: reply
@@ -112,11 +145,31 @@ app.post("/chat", async (req, res) => {
 
     console.error("Claude API Error:", error);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Error Response
+    |--------------------------------------------------------------------------
+    */
+
     res.status(500).json({
       success: false,
       error: "Server Error"
     });
   }
+});
+
+/*
+|--------------------------------------------------------------------------
+| 404 Route
+|--------------------------------------------------------------------------
+*/
+
+app.use((req, res) => {
+
+  res.status(404).json({
+    success: false,
+    error: "Route not found"
+  });
 });
 
 /*
